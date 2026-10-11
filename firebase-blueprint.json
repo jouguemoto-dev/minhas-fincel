@@ -1,0 +1,262 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile document",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique user identifier matching auth UID",
+          "maxLength": 128
+        },
+        "email": {
+          "type": "string",
+          "description": "User email address",
+          "maxLength": 254
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "ISO timestamp of creation"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of last update"
+        }
+      },
+      "required": ["id", "email", "createdAt"]
+    },
+    "Account": {
+      "title": "Account",
+      "description": "Financial account entity",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Account unique ID",
+          "maxLength": 128
+        },
+        "userId": {
+          "type": "string",
+          "description": "Owner user ID",
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "description": "Account display name",
+          "maxLength": 100
+        },
+        "balance": {
+          "type": "number",
+          "description": "Current balance"
+        },
+        "initialBalance": {
+          "type": "number",
+          "description": "Starting balance"
+        },
+        "type": {
+          "type": "string",
+          "description": "Account type",
+          "enum": ["carteira", "corrente", "cartao", "poupanca", "investimento"]
+        },
+        "isChecked": {
+          "type": "boolean",
+          "description": "Whether included in overview totals"
+        },
+        "color": {
+          "type": "string",
+          "description": "Display color hex code",
+          "maxLength": 20
+        }
+      },
+      "required": ["id", "userId", "name", "balance", "initialBalance", "type", "isChecked"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Financial category entity",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Category ID",
+          "maxLength": 128
+        },
+        "userId": {
+          "type": "string",
+          "description": "Owner user ID",
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "description": "Category name",
+          "maxLength": 100
+        },
+        "type": {
+          "type": "string",
+          "description": "Category type",
+          "enum": ["despesa", "receita"]
+        },
+        "subcategories": {
+          "type": "array",
+          "description": "List of subcategory names"
+        },
+        "isOpen": {
+          "type": "boolean",
+          "description": "Whether expanded in UI"
+        }
+      },
+      "required": ["id", "userId", "name", "type"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Financial transaction entry",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Transaction ID",
+          "maxLength": 128
+        },
+        "userId": {
+          "type": "string",
+          "description": "Owner user ID",
+          "maxLength": 128
+        },
+        "date": {
+          "type": "string",
+          "description": "Transaction date in YYYY-MM-DD",
+          "maxLength": 10
+        },
+        "description": {
+          "type": "string",
+          "description": "Transaction description",
+          "maxLength": 200
+        },
+        "category": {
+          "type": "string",
+          "description": "Category name",
+          "maxLength": 100
+        },
+        "account": {
+          "type": "string",
+          "description": "Account name or ID",
+          "maxLength": 100
+        },
+        "amount": {
+          "type": "number",
+          "description": "Transaction amount"
+        },
+        "type": {
+          "type": "string",
+          "description": "Transaction type",
+          "enum": ["despesa", "receita", "transferencia"]
+        },
+        "isConsolidated": {
+          "type": "boolean",
+          "description": "Whether consolidated"
+        },
+        "isRecurring": {
+          "type": "boolean",
+          "description": "Whether recurring"
+        },
+        "recurrenceText": {
+          "type": "string",
+          "description": "Recurrence description",
+          "maxLength": 100
+        },
+        "reminder": {
+          "type": "string",
+          "description": "Reminder text",
+          "maxLength": 100
+        },
+        "note": {
+          "type": "string",
+          "description": "Additional note",
+          "maxLength": 500
+        },
+        "toAccount": {
+          "type": "string",
+          "description": "Target account for transfers",
+          "maxLength": 100
+        },
+        "installmentNumber": {
+          "type": "number",
+          "description": "Current installment index (e.g. 1)"
+        },
+        "totalInstallments": {
+          "type": "number",
+          "description": "Total number of installments (e.g. 10)"
+        },
+        "installmentGroupId": {
+          "type": "string",
+          "description": "Unique identifier connecting all installments of the same purchase",
+          "maxLength": 100
+        }
+      },
+      "required": ["id", "userId", "date", "description", "category", "account", "amount", "type", "isConsolidated"]
+    },
+    "Dream": {
+      "title": "Dream",
+      "description": "Savings goal / dream entity",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Dream ID",
+          "maxLength": 128
+        },
+        "userId": {
+          "type": "string",
+          "description": "Owner user ID",
+          "maxLength": 128
+        },
+        "title": {
+          "type": "string",
+          "description": "Dream title",
+          "maxLength": 100
+        },
+        "targetAmount": {
+          "type": "number",
+          "description": "Target amount"
+        },
+        "currentAmount": {
+          "type": "number",
+          "description": "Current saved amount"
+        },
+        "targetDate": {
+          "type": "string",
+          "description": "Target date in YYYY-MM-DD",
+          "maxLength": 10
+        },
+        "category": {
+          "type": "string",
+          "description": "Category name",
+          "maxLength": 100
+        }
+      },
+      "required": ["id", "userId", "title", "targetAmount", "currentAmount", "targetDate", "category"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Root user profile document"
+    },
+    "/users/{userId}/accounts/{accountId}": {
+      "schema": "Account",
+      "description": "User financial accounts"
+    },
+    "/users/{userId}/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "User expense and income categories"
+    },
+    "/users/{userId}/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "User transactions"
+    },
+    "/users/{userId}/dreams/{dreamId}": {
+      "schema": "Dream",
+      "description": "User dreams and savings goals"
+    }
+  }
+}

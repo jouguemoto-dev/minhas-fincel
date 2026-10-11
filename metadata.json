@@ -1,0 +1,6 @@
+{
+  "name": "Minhas Economias",
+  "description": "Sistema de controle financeiro pessoal completo idêntico ao Minhas Economias, com gestão de contas, transações, gráficos e relatórios.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

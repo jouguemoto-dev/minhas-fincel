@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  html {
+    font-size: 15px; /* Bumped up 1x from default */
+    color-scheme: light;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    color: #000000; /* Deep pitch black text */
+    font-size: 14.5px; /* Increased 1 step */
+    font-weight: 500; /* Crisper, more visible glyph weight */
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    background-color: #f4f4f4;
+  }
+
+  /* Form controls high legibility with crisp black text */
+  input, select, textarea, button {
+    font-family: inherit;
+    color: #000000;
+  }
+
+  input::placeholder, textarea::placeholder {
+    color: #4b5563; /* Clear visible placeholder */
+  }
+
+  /* Make sure bold text is strongly prominent deep black */
+  strong, b, .font-bold, .font-semibold, .font-extrabold {
+    font-weight: 700;
+    color: #000000;
+  }
+
+  /* High contrast table styles */
+  table th, table td {
+    color: #000000;
+  }
+}

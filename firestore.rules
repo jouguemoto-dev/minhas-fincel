@@ -1,0 +1,136 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'email', 'createdAt'])
+        && data.keys().hasOnly(['id', 'email', 'createdAt', 'updatedAt'])
+        && data.id is string && data.id.size() <= 128
+        && data.email is string && data.email.size() <= 254
+        && data.createdAt is string && data.createdAt.size() <= 40
+        && (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 40));
+    }
+
+    function isValidAccount(data) {
+      return data.keys().hasAll(['id', 'userId', 'name', 'balance', 'initialBalance', 'type', 'isChecked'])
+        && data.keys().hasOnly(['id', 'userId', 'name', 'balance', 'initialBalance', 'type', 'isChecked', 'color'])
+        && data.id is string && data.id.size() <= 128
+        && data.userId is string && data.userId.size() <= 128
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && (data.balance is number)
+        && (data.initialBalance is number)
+        && data.type in ['carteira', 'corrente', 'cartao', 'poupanca', 'investimento']
+        && (data.isChecked is bool)
+        && (!('color' in data) || (data.color is string && data.color.size() <= 20));
+    }
+
+    function isValidCategory(data) {
+      return data.keys().hasAll(['id', 'userId', 'name', 'type'])
+        && data.keys().hasOnly(['id', 'userId', 'name', 'type', 'subcategories', 'isOpen'])
+        && data.id is string && data.id.size() <= 128
+        && data.userId is string && data.userId.size() <= 128
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && data.type in ['despesa', 'receita']
+        && (!('subcategories' in data) || (data.subcategories is list && data.subcategories.size() <= 50))
+        && (!('isOpen' in data) || (data.isOpen is bool));
+    }
+
+    function isValidTransaction(data) {
+      return data.keys().hasAll(['id', 'userId', 'date', 'description', 'category', 'account', 'amount', 'type', 'isConsolidated'])
+        && data.keys().hasOnly(['id', 'userId', 'date', 'description', 'category', 'account', 'amount', 'type', 'isConsolidated', 'isRecurring', 'recurrenceText', 'reminder', 'note', 'toAccount', 'installmentNumber', 'totalInstallments', 'installmentGroupId'])
+        && data.id is string && data.id.size() <= 128
+        && data.userId is string && data.userId.size() <= 128
+        && data.date is string && data.date.size() <= 10
+        && data.description is string && data.description.size() <= 200
+        && data.category is string && data.category.size() <= 100
+        && data.account is string && data.account.size() <= 100
+        && (data.amount is number)
+        && data.type in ['despesa', 'receita', 'transferencia']
+        && (data.isConsolidated is bool)
+        && (!('isRecurring' in data) || (data.isRecurring is bool))
+        && (!('recurrenceText' in data) || (data.recurrenceText is string && data.recurrenceText.size() <= 100))
+        && (!('reminder' in data) || (data.reminder is string && data.reminder.size() <= 100))
+        && (!('note' in data) || (data.note is string && data.note.size() <= 500))
+        && (!('toAccount' in data) || (data.toAccount is string && data.toAccount.size() <= 100))
+        && (!('installmentNumber' in data) || (data.installmentNumber is number))
+        && (!('totalInstallments' in data) || (data.totalInstallments is number))
+        && (!('installmentGroupId' in data) || (data.installmentGroupId is string && data.installmentGroupId.size() <= 100));
+    }
+
+    function isValidDream(data) {
+      return data.keys().hasAll(['id', 'userId', 'title', 'targetAmount', 'currentAmount', 'targetDate', 'category'])
+        && data.keys().hasOnly(['id', 'userId', 'title', 'targetAmount', 'currentAmount', 'targetDate', 'category'])
+        && data.id is string && data.id.size() <= 128
+        && data.userId is string && data.userId.size() <= 128
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 100
+        && (data.targetAmount is number)
+        && (data.currentAmount is number)
+        && data.targetDate is string && data.targetDate.size() <= 10
+        && data.category is string && data.category.size() <= 100;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().id == userId;
+      allow update: if isOwner(userId) && isValidUser(incoming()) && incoming().id == existing().id;
+      allow delete: if false;
+
+      match /accounts/{accountId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(accountId);
+        allow create: if isOwner(userId) && isValidId(accountId) && isValidAccount(incoming()) && incoming().userId == userId && incoming().id == accountId;
+        allow update: if isOwner(userId) && isValidId(accountId) && isValidAccount(incoming()) && incoming().userId == existing().userId && incoming().id == existing().id;
+        allow delete: if isOwner(userId) && isValidId(accountId);
+      }
+
+      match /categories/{categoryId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(categoryId);
+        allow create: if isOwner(userId) && isValidId(categoryId) && isValidCategory(incoming()) && incoming().userId == userId && incoming().id == categoryId;
+        allow update: if isOwner(userId) && isValidId(categoryId) && isValidCategory(incoming()) && incoming().userId == existing().userId && incoming().id == existing().id;
+        allow delete: if isOwner(userId) && isValidId(categoryId);
+      }
+
+      match /transactions/{transactionId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(transactionId);
+        allow create: if isOwner(userId) && isValidId(transactionId) && isValidTransaction(incoming()) && incoming().userId == userId && incoming().id == transactionId;
+        allow update: if isOwner(userId) && isValidId(transactionId) && isValidTransaction(incoming()) && incoming().userId == existing().userId && incoming().id == existing().id;
+        allow delete: if isOwner(userId) && isValidId(transactionId);
+      }
+
+      match /dreams/{dreamId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(dreamId);
+        allow create: if isOwner(userId) && isValidId(dreamId) && isValidDream(incoming()) && incoming().userId == userId && incoming().id == dreamId;
+        allow update: if isOwner(userId) && isValidId(dreamId) && isValidDream(incoming()) && incoming().userId == existing().userId && incoming().id == existing().id;
+        allow delete: if isOwner(userId) && isValidId(dreamId);
+      }
+    }
+  }
+}

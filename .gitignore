@@ -1,0 +1,12 @@
+node_modules/
+build/
+dist/
+dev-dist/
+coverage/
+data/*.sqlite
+data/*.sqlite-shm
+data/*.sqlite-wal
+.DS_Store
+*.log
+.env*
+!.env.example
