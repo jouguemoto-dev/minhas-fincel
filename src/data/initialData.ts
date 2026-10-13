@@ -1,9 +1,22 @@
-import { Account, Category, Dream, Transaction } from '../types';
+import { Account, Category, Dream, Transaction, CreditCard } from '../types';
 
 export const INITIAL_ACCOUNTS: Account[] = [
   { id: '1', name: 'Carteira', balance: 0, initialBalance: 0, type: 'carteira', isChecked: true },
   { id: '2', name: 'Conta corrente', balance: 0, initialBalance: 0, type: 'corrente', isChecked: true },
   { id: '3', name: 'Cartão de crédito', balance: 0, initialBalance: 0, type: 'cartao', isChecked: true },
+];
+
+export const INITIAL_CREDIT_CARDS: CreditCard[] = [
+  {
+    id: 'card_default_1',
+    name: 'Cartão de crédito',
+    brand: 'mastercard',
+    limit: 5000,
+    closingDay: 5,
+    dueDay: 12,
+    color: '#820ad1',
+    last4Digits: '4890',
+  },
 ];
 
 export const INITIAL_CATEGORIES: Category[] = [

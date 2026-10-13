@@ -3,6 +3,7 @@ import { Account, Category, Transaction } from '../types';
 import { formatDateWithWeekday, formatCurrency, formatSignedAmount, MONTH_NAMES_PT } from '../utils/formatters';
 import { AddTransactionBar } from './AddTransactionBar';
 import {
+  Calendar,
   ChevronLeft,
   ChevronRight,
   Filter,
@@ -181,6 +182,19 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
     }
   });
 
+  const now = new Date();
+  const currentRealMonth = now.getMonth();
+  const currentRealYear = now.getFullYear();
+  const isCurrentMonth = selectedMonth === currentRealMonth && selectedYear === currentRealYear;
+  const currentMonthLabel = `${MONTH_NAMES_PT[currentRealMonth]}/${currentRealYear}`;
+
+  const availableYears = Array.from(new Set([
+    selectedYear,
+    currentRealYear - 1,
+    currentRealYear,
+    currentRealYear + 1,
+  ])).sort((a, b) => a - b);
+
   const monthLabel = `${MONTH_NAMES_PT[selectedMonth]}/${selectedYear}`;
 
   const getCategoryIcon = (catName: string) => {
@@ -231,8 +245,26 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
                 <span className="text-[10px] text-[#82af07]">▼</span>
               </button>
               {monthDropdownOpen && (
-                <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-200 shadow-xl rounded-xl py-1 z-30 max-h-56 overflow-y-auto">
-                  {[2026, 2027].map(yr => (
+                <div className="absolute top-full left-0 mt-1 w-52 bg-white border border-gray-200 shadow-xl rounded-xl py-1 z-30 max-h-60 overflow-y-auto">
+                  {/* Shortcut to Current Month */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSelectMonthYear(currentRealYear, currentRealMonth);
+                      setMonthDropdownOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs font-black text-[#577708] bg-[#f1f6df] hover:bg-[#e4ecc4] border-b border-gray-200 flex items-center justify-between cursor-pointer"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>Ir para Mês Atual</span>
+                    </span>
+                    <span className="text-[10px] bg-[#82af07] text-white px-1.5 py-0.5 rounded font-bold">
+                      {MONTH_NAMES_PT[currentRealMonth]}
+                    </span>
+                  </button>
+
+                  {availableYears.map(yr => (
                     <div key={yr}>
                       <div className="px-3 py-1 font-bold text-xs bg-gray-100 text-gray-500">{yr}</div>
                       {MONTH_NAMES_PT.map((m, idx) => (
@@ -243,7 +275,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
                             setMonthDropdownOpen(false);
                           }}
                           className={`w-full text-left px-3 py-1.5 text-xs font-bold ${
-                            selectedMonth === idx && selectedYear === yr ? 'text-[#82af07] bg-green-50' : 'text-gray-800 hover:bg-gray-50'
+                            selectedMonth === idx && selectedYear === yr ? 'text-[#82af07] bg-green-50 font-black' : 'text-gray-800 hover:bg-gray-50'
                           }`}
                         >
                           {m} / {yr}
@@ -262,9 +294,32 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
             >
               ▶
             </button>
+
+            {!isCurrentMonth && (
+              <button
+                type="button"
+                onClick={() => onSelectMonthYear(currentRealYear, currentRealMonth)}
+                className="px-2 py-1 bg-[#82af07] hover:bg-[#6e9406] text-white rounded-lg font-black text-[11px] shadow-2xs active:scale-95 transition-all cursor-pointer whitespace-nowrap ml-0.5"
+                title="Voltar ao mês atual"
+              >
+                Mês atual
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-1.5">
+            {onOpenChatModal && (
+              <button
+                type="button"
+                onClick={onOpenChatModal}
+                className="px-2.5 py-1.5 bg-white hover:bg-gray-100 border border-gray-300 text-gray-800 rounded-xl font-black text-xs flex items-center gap-1 shadow-2xs cursor-pointer active:scale-95 transition-all"
+                title="Lançamento por Chat com IA"
+              >
+                <MessageSquare className="w-3.5 h-3.5 text-[#5a8710]" />
+                <span>Chat</span>
+              </button>
+            )}
+
             <button
               onClick={() => setMobileSearchOpen(!mobileSearchOpen)}
               className={`p-2 rounded-xl border transition-colors cursor-pointer ${
@@ -414,8 +469,26 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
             </button>
 
             {monthDropdownOpen && (
-              <div className="absolute top-full left-0 mt-1 w-52 bg-white border border-[#888888] shadow-xl py-1 z-30 max-h-60 overflow-y-auto">
-                {[2026, 2027].map(yr => (
+              <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-[#888888] shadow-xl py-1 z-30 max-h-60 overflow-y-auto">
+                {/* Shortcut to Current Month */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSelectMonthYear(currentRealYear, currentRealMonth);
+                    setMonthDropdownOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs font-black text-[#577708] bg-[#f1f6df] hover:bg-[#e4ecc4] border-b border-gray-200 flex items-center justify-between cursor-pointer"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>Ir para Mês Atual</span>
+                  </span>
+                  <span className="text-[10px] bg-[#82af07] text-white px-1.5 py-0.5 rounded font-bold">
+                    {MONTH_NAMES_PT[currentRealMonth]}
+                  </span>
+                </button>
+
+                {availableYears.map(yr => (
                   <div key={yr}>
                     <div className="px-3 py-1 font-bold text-[12px] bg-gray-100 text-[#000000]">{yr}</div>
                     {MONTH_NAMES_PT.map((m, idx) => (
@@ -426,7 +499,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
                           setMonthDropdownOpen(false);
                         }}
                         className={`w-full text-left px-3.5 py-1.5 hover:bg-[#f1f6df] cursor-pointer text-[13.5px] font-bold ${
-                          selectedMonth === idx && selectedYear === yr ? 'text-[#73a000]' : 'text-[#000000]'
+                          selectedMonth === idx && selectedYear === yr ? 'text-[#73a000] font-black bg-green-50' : 'text-[#000000]'
                         }`}
                       >
                         {m} / {yr}
@@ -541,6 +614,19 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
             <Plus className="w-4 h-4 stroke-[3]" />
             <span>Adicionar transação</span>
           </button>
+
+          {/* "Lançar por chat" button */}
+          {onOpenChatModal && (
+            <button
+              type="button"
+              onClick={onOpenChatModal}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 border border-[#999] bg-gradient-to-b from-[#ffffff] to-[#e4e4e4] hover:to-[#dadada] text-[#000000] font-black rounded-xs text-[13px] cursor-pointer active:translate-y-px shadow-xs"
+              title="Criar lançamento por chat com Inteligência Artificial"
+            >
+              <MessageSquare className="w-4 h-4 text-[#5a8710]" />
+              <span>Lançar por chat</span>
+            </button>
+          )}
 
           {/* Delete Selected (✕) */}
           <button
@@ -749,13 +835,34 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
           <div className="p-8 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-300">
             <div className="text-3xl mb-2">🧾</div>
             <div className="text-black font-black text-[15px]">Nenhuma transação encontrada</div>
-            <p className="text-gray-500 text-[12.5px] mt-1 mb-3">Nenhum lançamento no período filtrado.</p>
-            <button
-              onClick={() => setShowAddBar(true)}
-              className="px-4 py-2 bg-[#82af07] hover:bg-[#6e9406] text-white font-black text-xs rounded-lg shadow-xs cursor-pointer"
-            >
-              + Adicionar Transação
-            </button>
+            <p className="text-gray-500 text-[12.5px] mt-1 mb-3">
+              {!isCurrentMonth
+                ? `Você está visualizando ${monthLabel}. Nenhum lançamento neste período.`
+                : 'Nenhum lançamento no período filtrado.'}
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+              {!isCurrentMonth && (
+                <button
+                  type="button"
+                  onClick={() => onSelectMonthYear(currentRealYear, currentRealMonth)}
+                  className="w-full sm:w-auto px-4 py-2 bg-[#82af07] hover:bg-[#6e9406] text-white font-black text-xs rounded-lg shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>Ir para o Mês Atual ({currentMonthLabel})</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowAddBar(true)}
+                className={`w-full sm:w-auto px-4 py-2 font-black text-xs rounded-lg shadow-xs cursor-pointer ${
+                  !isCurrentMonth
+                    ? 'bg-white border border-gray-300 hover:bg-gray-100 text-gray-800'
+                    : 'bg-[#82af07] hover:bg-[#6e9406] text-white'
+                }`}
+              >
+                + Adicionar Transação
+              </button>
+            </div>
           </div>
         ) : (
           dates.map((dateStr) => {
@@ -900,8 +1007,22 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
 
         {/* Empty State */}
         {dates.length === 0 && (
-          <div className="p-8 text-center text-red-600 font-black text-[15px]">
-            Nenhuma transação encontrada neste período.
+          <div className="p-8 text-center text-[#555555] font-bold text-[14.5px] space-y-2">
+            <div>
+              {!isCurrentMonth
+                ? `Você está visualizando ${monthLabel}. Nenhuma transação encontrada neste período.`
+                : 'Nenhuma transação encontrada neste período.'}
+            </div>
+            {!isCurrentMonth && (
+              <button
+                type="button"
+                onClick={() => onSelectMonthYear(currentRealYear, currentRealMonth)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#82af07] hover:bg-[#6e9406] text-white font-black text-xs rounded-xs cursor-pointer shadow-xs"
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                <span>Ir para o Mês Atual ({currentMonthLabel})</span>
+              </button>
+            )}
           </div>
         )}
 

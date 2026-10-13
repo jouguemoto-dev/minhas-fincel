@@ -2,6 +2,7 @@ import React, { FormEvent, useState } from 'react';
 import { Logo } from './Logo';
 import { AuthResponse, FinanceData, login, register } from '../lib/api';
 import { loginWithGoogle, loadUserFinanceData, saveUserFinanceData } from '../lib/firebase';
+import { INITIAL_ACCOUNTS, INITIAL_CATEGORIES, INITIAL_CREDIT_CARDS } from '../data/initialData';
 
 interface AuthScreenProps {
   initialData: FinanceData;
@@ -29,16 +30,29 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       const user = await loginWithGoogle();
       let data = await loadUserFinanceData(user.uid);
       if (!data) {
-        data = initialData;
-        await saveUserFinanceData(user.uid, user.email ?? '', initialData);
+        data = {
+          accounts: INITIAL_ACCOUNTS,
+          categories: INITIAL_CATEGORIES,
+          transactions: [],
+          dreams: [],
+          creditCards: INITIAL_CREDIT_CARDS,
+        };
+        await saveUserFinanceData(user.uid, user.email ?? '', data);
       }
       onAuthenticated({
         token: `fb_${user.uid}`,
         user: { email: user.email ?? '' },
         data,
       });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Falha ao autenticar com Google.');
+    } catch (err: unknown) {
+      const anyErr = err as { code?: string; message?: string };
+      if (anyErr?.code === 'auth/popup-closed-by-user') {
+        setError('O login com Google foi cancelado antes de concluir.');
+      } else if (anyErr?.code === 'auth/popup-blocked') {
+        setError('O pop-up de login foi bloqueado pelo navegador. Por favor, permita pop-ups para este site.');
+      } else {
+        setError(err instanceof Error ? err.message : 'Falha ao autenticar com Google.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -196,14 +210,14 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 type="button"
                 onClick={() => {
                   onAuthenticated({
-                    token: 'local_julio',
-                    user: { email: 'julio@cbcenergiasrenovaveis.com' },
+                    token: 'local_guest',
+                    user: { email: 'Modo Local (Sem Login)' },
                     data: initialData,
                   });
                 }}
                 className="w-full py-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold rounded text-sm transition-colors cursor-pointer"
               >
-                Acessar Sistema Diretamente (Sem Login) →
+                Acessar Sistema Diretamente (Modo Local / Sem Login) →
               </button>
             </div>
           </form>

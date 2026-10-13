@@ -94,6 +94,21 @@ service cloud.firestore {
         && data.category is string && data.category.size() <= 100;
     }
 
+    function isValidCreditCard(data) {
+      return data.keys().hasAll(['id', 'userId', 'name', 'brand', 'limit', 'closingDay', 'dueDay'])
+        && data.keys().hasOnly(['id', 'userId', 'name', 'brand', 'limit', 'closingDay', 'dueDay', 'color', 'last4Digits', 'accountId'])
+        && data.id is string && data.id.size() <= 128
+        && data.userId is string && data.userId.size() <= 128
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && data.brand in ['mastercard', 'visa', 'elo', 'amex', 'hipercard', 'outro']
+        && (data.limit is number)
+        && (data.closingDay is number) && data.closingDay >= 1 && data.closingDay <= 31
+        && (data.dueDay is number) && data.dueDay >= 1 && data.dueDay <= 31
+        && (!('color' in data) || (data.color is string && data.color.size() <= 25))
+        && (!('last4Digits' in data) || (data.last4Digits is string && data.last4Digits.size() <= 10))
+        && (!('accountId' in data) || (data.accountId is string && data.accountId.size() <= 128));
+    }
+
     match /users/{userId} {
       allow get: if isOwner(userId);
       allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().id == userId;
@@ -104,15 +119,23 @@ service cloud.firestore {
         allow list: if isOwner(userId);
         allow get: if isOwner(userId) && isValidId(accountId);
         allow create: if isOwner(userId) && isValidId(accountId) && isValidAccount(incoming()) && incoming().userId == userId && incoming().id == accountId;
-        allow update: if isOwner(userId) && isValidId(accountId) && isValidAccount(incoming()) && incoming().userId == existing().userId && incoming().id == existing().id;
+        allow update: if isOwner(userId) && isValidId(accountId) && isValidAccount(incoming()) && incoming().userId == userId && incoming().id == accountId;
         allow delete: if isOwner(userId) && isValidId(accountId);
+      }
+
+      match /creditCards/{cardId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(cardId);
+        allow create: if isOwner(userId) && isValidId(cardId) && isValidCreditCard(incoming()) && incoming().userId == userId && incoming().id == cardId;
+        allow update: if isOwner(userId) && isValidId(cardId) && isValidCreditCard(incoming()) && incoming().userId == userId && incoming().id == cardId;
+        allow delete: if isOwner(userId) && isValidId(cardId);
       }
 
       match /categories/{categoryId} {
         allow list: if isOwner(userId);
         allow get: if isOwner(userId) && isValidId(categoryId);
         allow create: if isOwner(userId) && isValidId(categoryId) && isValidCategory(incoming()) && incoming().userId == userId && incoming().id == categoryId;
-        allow update: if isOwner(userId) && isValidId(categoryId) && isValidCategory(incoming()) && incoming().userId == existing().userId && incoming().id == existing().id;
+        allow update: if isOwner(userId) && isValidId(categoryId) && isValidCategory(incoming()) && incoming().userId == userId && incoming().id == categoryId;
         allow delete: if isOwner(userId) && isValidId(categoryId);
       }
 
@@ -120,7 +143,7 @@ service cloud.firestore {
         allow list: if isOwner(userId);
         allow get: if isOwner(userId) && isValidId(transactionId);
         allow create: if isOwner(userId) && isValidId(transactionId) && isValidTransaction(incoming()) && incoming().userId == userId && incoming().id == transactionId;
-        allow update: if isOwner(userId) && isValidId(transactionId) && isValidTransaction(incoming()) && incoming().userId == existing().userId && incoming().id == existing().id;
+        allow update: if isOwner(userId) && isValidId(transactionId) && isValidTransaction(incoming()) && incoming().userId == userId && incoming().id == transactionId;
         allow delete: if isOwner(userId) && isValidId(transactionId);
       }
 
@@ -128,7 +151,7 @@ service cloud.firestore {
         allow list: if isOwner(userId);
         allow get: if isOwner(userId) && isValidId(dreamId);
         allow create: if isOwner(userId) && isValidId(dreamId) && isValidDream(incoming()) && incoming().userId == userId && incoming().id == dreamId;
-        allow update: if isOwner(userId) && isValidId(dreamId) && isValidDream(incoming()) && incoming().userId == existing().userId && incoming().id == existing().id;
+        allow update: if isOwner(userId) && isValidId(dreamId) && isValidDream(incoming()) && incoming().userId == userId && incoming().id == dreamId;
         allow delete: if isOwner(userId) && isValidId(dreamId);
       }
     }

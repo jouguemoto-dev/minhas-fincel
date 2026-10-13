@@ -45,6 +45,16 @@ export function getMonthYearLabel(year: number, monthIndex: number): string {
   return `${MONTH_NAMES_PT[monthIndex]}/${year}`;
 }
 
+/**
+ * Retorna a data local no formato YYYY-MM-DD sem distorção de fuso horário UTC (evita pular dia após as 21h no Brasil).
+ */
+export function getTodayDateStr(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export function formatDateBR(dateStr: string): string {
   if (!dateStr) return '';
   const [y, m, d] = dateStr.split('-');

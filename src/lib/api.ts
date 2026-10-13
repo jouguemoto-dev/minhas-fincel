@@ -1,10 +1,11 @@
-import { Account, Category, Dream, Transaction } from '../types';
+import { Account, Category, Dream, Transaction, CreditCard } from '../types';
 
 export interface FinanceData {
   accounts: Account[];
   categories: Category[];
   transactions: Transaction[];
   dreams: Dream[];
+  creditCards?: CreditCard[];
 }
 
 export interface AuthResponse {

@@ -4,6 +4,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import express, { NextFunction, Request, Response } from 'express';
 import { GoogleGenAI, Type } from '@google/genai';
+import { parseLocalText } from './src/utils/nlpParser';
 
 const port = 3000;
 
@@ -201,6 +202,7 @@ type FinanceData = {
   categories: unknown[];
   transactions: unknown[];
   dreams: unknown[];
+  creditCards?: unknown[];
 };
 
 type AuthenticatedRequest = Request & { userId?: string };
@@ -399,7 +401,7 @@ async function startServer() {
     }
   });
 
-  // AI-Powered Natural Language Transaction Parser (Gemini 3.8 Flash)
+  // AI-Powered Natural Language Transaction Parser (Gemini 3.1 Flash Lite + Fast Smart Fallback)
   app.post('/api/ai/parse-transaction', async (req, res, next) => {
     try {
       const { text, referenceDate, accounts, categories } = req.body;
@@ -408,14 +410,17 @@ async function startServer() {
         return;
       }
 
+      const todayStr = referenceDate || new Date().toISOString().split('T')[0];
       const apiKey = process.env.GEMINI_API_KEY;
+
       if (!apiKey) {
-        res.status(503).json({ error: 'GEMINI_API_KEY não configurada no servidor.' });
+        // Fallback imediato de alta precisão
+        const local = parseLocalText(text, accounts, categories, todayStr);
+        res.json(local);
         return;
       }
 
-      const ai = new GoogleGenAI();
-      const todayStr = referenceDate || new Date().toISOString().split('T')[0];
+      const ai = new GoogleGenAI({ apiKey });
 
       const prompt = `Data de hoje de referência: ${todayStr}
 Contas cadastradas pelo usuário: ${JSON.stringify(accounts || ['Carteira', 'Conta Corrente', 'Cartão de Crédito'])}
@@ -424,11 +429,13 @@ Categorias cadastradas pelo usuário: ${JSON.stringify(categories || ['Alimenta�
 Mensagem do usuário:
 "${text}"`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: prompt,
-        config: {
-          systemInstruction: `Você é o assistente inteligente de finanças pessoais do Minhas Economias.
+      // Executa Gemini com timeout rápido (2200ms) para resposta ultra-ágil
+      try {
+        const geminiCall = ai.models.generateContent({
+          model: 'gemini-3.1-flash-lite',
+          contents: prompt,
+          config: {
+            systemInstruction: `Você é o assistente inteligente de finanças pessoais do Minhas Economias.
 Analise a mensagem em linguagem natural do usuário (em português) e extraia uma ou mais transações financeiras.
 Regras:
 1. Se for gasto, compra, pagamento, boleto, conta: type = 'despesa'.
@@ -441,42 +448,58 @@ Regras:
 8. category: Escolha a categoria existente mais adequada ou sugira um nome claro se não existir.
 9. account: Escolha a conta mais adequada (se mencionou "cartão", prefira o cartão).
 10. replyMessage: Uma resposta curta, simpática e confirmando os dados extraídos (ex: "Entendido! Identifiquei um gasto de R$ 45,00 em Alimentação na Carteira.").`,
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              replyMessage: { type: Type.STRING },
-              transactions: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    description: { type: Type.STRING },
-                    amount: { type: Type.NUMBER },
-                    type: { type: Type.STRING, enum: ['despesa', 'receita', 'transferencia'] },
-                    category: { type: Type.STRING },
-                    account: { type: Type.STRING },
-                    date: { type: Type.STRING },
-                    installments: { type: Type.INTEGER },
-                    isTotalAmount: { type: Type.BOOLEAN },
-                    note: { type: Type.STRING },
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                replyMessage: { type: Type.STRING },
+                transactions: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      description: { type: Type.STRING },
+                      amount: { type: Type.NUMBER },
+                      type: { type: Type.STRING, enum: ['despesa', 'receita', 'transferencia'] },
+                      category: { type: Type.STRING },
+                      account: { type: Type.STRING },
+                      toAccount: { type: Type.STRING },
+                      date: { type: Type.STRING },
+                      installments: { type: Type.INTEGER },
+                      isTotalAmount: { type: Type.BOOLEAN },
+                      note: { type: Type.STRING },
+                    },
+                    required: ['description', 'amount', 'type', 'category', 'date'],
                   },
-                  required: ['description', 'amount', 'type', 'category', 'date'],
                 },
               },
+              required: ['replyMessage', 'transactions'],
             },
-            required: ['replyMessage', 'transactions'],
           },
-        },
-      });
+        });
 
-      const parsedJson = JSON.parse(response.text || '{}');
-      res.json(parsedJson);
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('TIMEOUT_FAST_FALLBACK')), 2200)
+        );
+
+        const response = await Promise.race([geminiCall, timeoutPromise]);
+        const parsedJson = JSON.parse(response.text || '{}');
+        if (parsedJson.transactions && parsedJson.transactions.length > 0) {
+          res.json(parsedJson);
+          return;
+        }
+      } catch (geminiErr) {
+        // Se a chamada ao Gemini demorou mais de 2.2s ou teve pico de demanda, usa o fallback instantâneo
+      }
+
+      // Fallback local garantido e imediato
+      const localFallback = parseLocalText(text, accounts, categories, todayStr);
+      res.json(localFallback);
     } catch (error) {
-      console.warn('Erro ao processar transação com Gemini:', error);
-      res.status(500).json({
-        error: error instanceof Error ? error.message : 'Falha ao interpretar mensagem.',
-      });
+      console.warn('Erro ao processar transação:', error);
+      const todayStr = req.body?.referenceDate || new Date().toISOString().split('T')[0];
+      const localFallback = parseLocalText(req.body?.text || '', req.body?.accounts, req.body?.categories, todayStr);
+      res.json(localFallback);
     }
   });
 
@@ -492,7 +515,7 @@ Regras:
   } else {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, hmr: false },
       appType: 'spa',
     });
     app.use(vite.middlewares);

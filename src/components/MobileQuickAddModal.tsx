@@ -15,6 +15,7 @@ interface MobileQuickAddModalProps {
     count?: number,
     options?: { isTotalAmount?: boolean }
   ) => void;
+  onOpenChatModal?: () => void;
 }
 
 export const MobileQuickAddModal: React.FC<MobileQuickAddModalProps> = ({
@@ -24,6 +25,7 @@ export const MobileQuickAddModal: React.FC<MobileQuickAddModalProps> = ({
   categories,
   initialType = 'despesa',
   onAddTransaction,
+  onOpenChatModal,
 }) => {
   const [type, setType] = useState<'despesa' | 'receita' | 'transferencia'>(initialType);
   const [amountInput, setAmountInput] = useState('');
@@ -182,13 +184,29 @@ export const MobileQuickAddModal: React.FC<MobileQuickAddModalProps> = ({
               Novo Lançamento Rápido
             </h3>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-gray-700 font-black cursor-pointer transition-colors"
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-2">
+            {onOpenChatModal && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenChatModal();
+                }}
+                className="px-2.5 py-1 bg-[#f1f6df] hover:bg-[#e4ecc4] text-[#577708] border border-[#c8e278] rounded-full text-xs font-black flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                title="Lançar por Chat com IA"
+              >
+                <Sparkles className="w-3 h-3 text-[#73a000]" />
+                <span>Usar Chat IA</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-gray-700 font-black cursor-pointer transition-colors"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* Scrollable Form Content */}

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Transaction, Category } from '../types';
 import { formatCurrency, formatSignedAmount, formatDateShortYear, MONTH_NAMES_PT } from '../utils/formatters';
-import { PieChart, TrendingUp, BarChart3, ChevronLeft, ChevronRight } from 'lucide-react';
+import { PieChart, TrendingUp, BarChart3, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 
 interface AnaliseViewProps {
   transactions: Transaction[];
@@ -50,6 +50,19 @@ export const AnaliseView: React.FC<AnaliseViewProps> = ({
       onSelectSubType(tab);
     }
   };
+
+  const now = new Date();
+  const currentRealMonth = now.getMonth();
+  const currentRealYear = now.getFullYear();
+  const isCurrentMonth = selectedMonth === currentRealMonth && selectedYear === currentRealYear;
+  const currentMonthLabel = `${MONTH_NAMES_PT[currentRealMonth]}/${currentRealYear}`;
+
+  const availableYears = Array.from(new Set([
+    selectedYear,
+    currentRealYear - 1,
+    currentRealYear,
+    currentRealYear + 1,
+  ])).sort((a, b) => a - b);
 
   const monthKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
   const monthLabel = `${MONTH_NAMES_PT[selectedMonth]}/${selectedYear}`;
@@ -137,8 +150,26 @@ export const AnaliseView: React.FC<AnaliseViewProps> = ({
               </button>
 
               {monthDropdownOpen && onSelectMonthYear && (
-                <div className="absolute top-full right-0 mt-1 w-48 bg-white border border-[#888888] shadow-xl py-1 z-30 max-h-60 overflow-y-auto">
-                  {[2026, 2027].map(yr => (
+                <div className="absolute top-full right-0 mt-1 w-56 bg-white border border-[#888888] shadow-xl py-1 z-30 max-h-60 overflow-y-auto">
+                  {/* Shortcut to Current Month */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSelectMonthYear(currentRealYear, currentRealMonth);
+                      setMonthDropdownOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs font-black text-[#577708] bg-[#f1f6df] hover:bg-[#e4ecc4] border-b border-gray-200 flex items-center justify-between cursor-pointer"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>Ir para Mês Atual</span>
+                    </span>
+                    <span className="text-[10px] bg-[#82af07] text-white px-1.5 py-0.5 rounded font-bold">
+                      {MONTH_NAMES_PT[currentRealMonth]}
+                    </span>
+                  </button>
+
+                  {availableYears.map(yr => (
                     <div key={yr}>
                       <div className="px-3 py-1 font-bold text-[12px] bg-gray-100 text-[#000000]">{yr}</div>
                       {MONTH_NAMES_PT.map((m, idx) => (
@@ -149,7 +180,7 @@ export const AnaliseView: React.FC<AnaliseViewProps> = ({
                             setMonthDropdownOpen(false);
                           }}
                           className={`w-full text-left px-3.5 py-1.5 hover:bg-[#f1f6df] cursor-pointer text-[13px] font-bold ${
-                            selectedMonth === idx && selectedYear === yr ? 'text-[#73a000]' : 'text-[#000000]'
+                            selectedMonth === idx && selectedYear === yr ? 'text-[#73a000] font-black bg-green-50' : 'text-[#000000]'
                           }`}
                         >
                           {m} / {yr}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Home, ReceiptText, Target, PieChart, Menu, Settings, Download, Smartphone, X, ChevronRight, BarChart2, ShieldCheck, LogOut, Plus } from 'lucide-react';
+import { Home, ReceiptText, Target, PieChart, Menu, Settings, Download, Smartphone, X, ChevronRight, BarChart2, ShieldCheck, LogOut, Plus, MessageSquare } from 'lucide-react';
 
 interface MobileBottomNavProps {
   activeTab: string;
@@ -7,6 +7,7 @@ interface MobileBottomNavProps {
   onOpenInstallModal: () => void;
   onOpenExportModal: () => void;
   onOpenQuickAdd: () => void;
+  onOpenChatModal?: () => void;
   isInstalled: boolean;
 }
 
@@ -16,6 +17,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   onOpenInstallModal,
   onOpenExportModal,
   onOpenQuickAdd,
+  onOpenChatModal,
   isInstalled,
 }) => {
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
@@ -54,6 +56,32 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 
             {/* Menu Items */}
             <div className="p-3 space-y-1 text-[14px]">
+              {/* Lançamento por Chat IA Highlight Card */}
+              {onOpenChatModal && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMoreMenuOpen(false);
+                    onOpenChatModal();
+                  }}
+                  className="w-full mb-2 p-3 bg-gradient-to-r from-[#2c4004] via-[#5a8710] to-[#82af07] text-white rounded-xl flex items-center justify-between font-black shadow-md cursor-pointer active:scale-98 transition-transform"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center">
+                      <MessageSquare className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="text-left">
+                      <div className="text-[14px] leading-tight font-black flex items-center gap-1.5">
+                        <span>Lançar por Chat</span>
+                        <span className="bg-emerald-400 text-emerald-950 text-[9.5px] font-black px-1.5 py-0.2 rounded-full uppercase tracking-wider">IA</span>
+                      </div>
+                      <div className="text-[11.5px] text-green-100 font-medium">Digite ou fale gastos em linguagem natural</div>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-5 h-5 opacity-90" />
+                </button>
+              )}
+
               {/* Install on Android Highlight Card */}
               {!isInstalled && (
                 <button

@@ -235,6 +235,61 @@
         }
       },
       "required": ["id", "userId", "title", "targetAmount", "currentAmount", "targetDate", "category"]
+    },
+    "CreditCard": {
+      "title": "CreditCard",
+      "description": "User credit card entity",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Credit card unique ID",
+          "maxLength": 128
+        },
+        "userId": {
+          "type": "string",
+          "description": "Owner user ID",
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "description": "Credit card display name",
+          "maxLength": 100
+        },
+        "brand": {
+          "type": "string",
+          "description": "Card brand flag",
+          "enum": ["mastercard", "visa", "elo", "amex", "hipercard", "outro"]
+        },
+        "limit": {
+          "type": "number",
+          "description": "Total credit limit"
+        },
+        "closingDay": {
+          "type": "number",
+          "description": "Invoice closing day of month (1 to 31)"
+        },
+        "dueDay": {
+          "type": "number",
+          "description": "Invoice due day of month (1 to 31)"
+        },
+        "color": {
+          "type": "string",
+          "description": "Card visual color hex code or theme",
+          "maxLength": 25
+        },
+        "last4Digits": {
+          "type": "string",
+          "description": "Last 4 digits",
+          "maxLength": 10
+        },
+        "accountId": {
+          "type": "string",
+          "description": "Optional linked payment account ID or name",
+          "maxLength": 128
+        }
+      },
+      "required": ["id", "userId", "name", "brand", "limit", "closingDay", "dueDay"]
     }
   },
   "firestore": {
@@ -245,6 +300,10 @@
     "/users/{userId}/accounts/{accountId}": {
       "schema": "Account",
       "description": "User financial accounts"
+    },
+    "/users/{userId}/creditCards/{cardId}": {
+      "schema": "CreditCard",
+      "description": "User credit cards"
     },
     "/users/{userId}/categories/{categoryId}": {
       "schema": "Category",

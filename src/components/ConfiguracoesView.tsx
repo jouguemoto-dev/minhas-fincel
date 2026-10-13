@@ -1,34 +1,51 @@
-import React, { useState } from 'react';
-import { Account, Category } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Account, Category, CreditCard } from '../types';
 import { formatCurrency } from '../utils/formatters';
-import { Trash2, Plus, Edit2, ShieldCheck } from 'lucide-react';
+import { Trash2, Plus, Edit2, ShieldCheck, CreditCard as CardIcon } from 'lucide-react';
 
 interface ConfiguracoesViewProps {
   accounts: Account[];
   categories: Category[];
+  creditCards?: CreditCard[];
+  initialSubTab?: 'contas' | 'categorias' | 'regras' | 'cartoes';
   onAddCategory: (cat: Category) => void;
   onEditCategory: (cat: Category) => void;
   onDeleteCategory: (id: string) => void;
   onOpenNewAccountModal: () => void;
   onEditAccount: (account: Account) => void;
   onDeleteAccount: (id: string) => void;
+  onOpenNewCreditCardModal?: () => void;
+  onEditCreditCard?: (card: CreditCard) => void;
+  onDeleteCreditCard?: (id: string) => void;
   onResetDataToZero?: () => void;
 }
 
 export const ConfiguracoesView: React.FC<ConfiguracoesViewProps> = ({
   accounts,
   categories,
+  creditCards = [],
+  initialSubTab = 'contas',
   onAddCategory,
   onEditCategory,
   onDeleteCategory,
   onOpenNewAccountModal,
   onEditAccount,
   onDeleteAccount,
+  onOpenNewCreditCardModal,
+  onEditCreditCard,
+  onDeleteCreditCard,
   onResetDataToZero,
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'contas' | 'categorias' | 'regras'>('contas');
+  const [activeSubTab, setActiveSubTab] = useState<'contas' | 'categorias' | 'regras' | 'cartoes'>(initialSubTab);
   const [newCatName, setNewCatName] = useState('');
   const [newCatType, setNewCatType] = useState<'despesa' | 'receita'>('despesa');
+  const [cardToDelete, setCardToDelete] = useState<CreditCard | null>(null);
+
+  useEffect(() => {
+    if (initialSubTab) {
+      setActiveSubTab(initialSubTab);
+    }
+  }, [initialSubTab]);
 
   const handleCreateCategory = (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,22 +63,30 @@ export const ConfiguracoesView: React.FC<ConfiguracoesViewProps> = ({
       <div className="pb-2 border-b border-[#bbbbbb] flex items-center justify-between flex-wrap gap-2">
         <div>
           <h2 className="text-[16px] font-black text-[#000000]">Configurações do Sistema</h2>
-          <p className="text-[13px] text-[#000000] font-bold">Gerencie suas contas, plano de categorias e regras automáticas.</p>
+          <p className="text-[13px] text-[#000000] font-bold">Gerencie suas contas, cartões de crédito, plano de categorias e regras.</p>
         </div>
 
         {/* Subtabs */}
         <div className="flex border-2 border-[#888888] rounded-xs overflow-hidden">
           <button
             onClick={() => setActiveSubTab('contas')}
-            className={`px-4 py-1.5 text-[13.5px] font-black cursor-pointer ${
+            className={`px-3 sm:px-4 py-1.5 text-[13px] font-black cursor-pointer ${
               activeSubTab === 'contas' ? 'bg-[#577708] text-white' : 'bg-gray-100 text-[#000000] hover:bg-gray-200'
             }`}
           >
             Contas
           </button>
           <button
+            onClick={() => setActiveSubTab('cartoes')}
+            className={`px-3 sm:px-4 py-1.5 text-[13px] font-black cursor-pointer ${
+              activeSubTab === 'cartoes' ? 'bg-[#577708] text-white' : 'bg-gray-100 text-[#000000] hover:bg-gray-200'
+            }`}
+          >
+            Cartões ({creditCards.length})
+          </button>
+          <button
             onClick={() => setActiveSubTab('categorias')}
-            className={`px-4 py-1.5 text-[13.5px] font-black cursor-pointer ${
+            className={`px-3 sm:px-4 py-1.5 text-[13px] font-black cursor-pointer ${
               activeSubTab === 'categorias' ? 'bg-[#577708] text-white' : 'bg-gray-100 text-[#000000] hover:bg-gray-200'
             }`}
           >
@@ -69,7 +94,7 @@ export const ConfiguracoesView: React.FC<ConfiguracoesViewProps> = ({
           </button>
           <button
             onClick={() => setActiveSubTab('regras')}
-            className={`px-4 py-1.5 text-[13.5px] font-black cursor-pointer ${
+            className={`px-3 sm:px-4 py-1.5 text-[13px] font-black cursor-pointer ${
               activeSubTab === 'regras' ? 'bg-[#577708] text-white' : 'bg-gray-100 text-[#000000] hover:bg-gray-200'
             }`}
           >
@@ -77,6 +102,133 @@ export const ConfiguracoesView: React.FC<ConfiguracoesViewProps> = ({
           </button>
         </div>
       </div>
+
+      {activeSubTab === 'cartoes' && (
+        <div className="space-y-3">
+          <div className="flex justify-between items-center flex-wrap gap-2">
+            <span className="font-black text-[14.5px] text-[#000000]">
+              Cartões de Crédito Cadastrados ({creditCards.length})
+            </span>
+            {onOpenNewCreditCardModal && (
+              <button
+                type="button"
+                onClick={onOpenNewCreditCardModal}
+                className="bg-[#5a8710] hover:bg-[#4d740c] text-white px-4 py-1.5 font-black rounded-xs text-[13px] cursor-pointer flex items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                <span>+ Novo Cartão</span>
+              </button>
+            )}
+          </div>
+
+          <div className="border border-[#b8b8b8] bg-white overflow-x-auto">
+            <table className="w-full text-left border-collapse text-[14px]">
+              <thead>
+                <tr className="bg-[#e8e8e8] border-b border-[#b8b8b8] font-black text-[#000000]">
+                  <th className="p-2.5 font-black">Cartão</th>
+                  <th className="p-2.5 font-black">Bandeira</th>
+                  <th className="p-2.5 font-black">Dia Vencimento</th>
+                  <th className="p-2.5 font-black">Melhor Compra (Fecha)</th>
+                  <th className="p-2.5 text-right font-black">Limite</th>
+                  <th className="p-2.5 text-center w-28 font-black">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {creditCards.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="p-6 text-center text-gray-500 font-bold">
+                      Nenhum cartão cadastrado ainda. Clique em "+ Novo Cartão" para cadastrar.
+                    </td>
+                  </tr>
+                ) : (
+                  creditCards.map((card) => (
+                    <tr key={card.id} className="border-b border-gray-200 hover:bg-[#f9f9f9]">
+                      <td className="p-2.5 font-black text-[#000000]">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="w-3.5 h-3.5 rounded-full shrink-0"
+                            style={{ backgroundColor: card.color || '#334155' }}
+                          />
+                          <span>{card.name}</span>
+                        </div>
+                      </td>
+                      <td className="p-2.5 text-[#000000] uppercase font-black text-xs">
+                        {card.brand}
+                      </td>
+                      <td className="p-2.5 text-red-700 font-bold">Dia {card.dueDay || 10}</td>
+                      <td className="p-2.5 text-[#5a8710] font-bold">Dia {card.closingDay || 5}</td>
+                      <td className="p-2.5 text-right font-black tabular-nums text-[#000000]">
+                        {formatCurrency(card.limit || 0)}
+                      </td>
+                      <td className="p-2.5 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          {onEditCreditCard && (
+                            <button
+                              type="button"
+                              onClick={() => onEditCreditCard(card)}
+                              className="px-2 py-1 bg-white hover:bg-gray-100 border border-gray-300 rounded-xs text-[#000000] hover:text-[#5a8710] font-bold cursor-pointer text-xs flex items-center gap-1 shadow-2xs"
+                              title="Editar cartão"
+                            >
+                              <Edit2 className="w-3 h-3 text-gray-700" />
+                              <span>Editar</span>
+                            </button>
+                          )}
+                          {onDeleteCreditCard && (
+                            <button
+                              type="button"
+                              onClick={() => setCardToDelete(card)}
+                              className="px-2 py-1 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xs text-red-700 font-bold cursor-pointer text-xs flex items-center gap-1 shadow-2xs"
+                              title="Excluir cartão"
+                            >
+                              <Trash2 className="w-3 h-3 text-red-600" />
+                              <span>Excluir</span>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Delete Card Confirmation Modal in Config */}
+          {cardToDelete && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-2xs flex items-center justify-center p-4">
+              <div className="bg-white border-2 border-red-500 shadow-2xl p-4 sm:p-5 max-w-md w-full rounded-xs space-y-3.5">
+                <div className="flex items-center gap-2.5 text-red-700">
+                  <Trash2 className="w-5 h-5 shrink-0" />
+                  <h4 className="font-black text-[15.5px]">Excluir Cartão de Crédito?</h4>
+                </div>
+                <p className="text-[13px] text-gray-800 font-medium">
+                  Tem certeza que deseja excluir o cartão <strong>"{cardToDelete.name}"</strong>?
+                </p>
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => setCardToDelete(null)}
+                    className="px-3 py-1.5 border border-gray-400 bg-white hover:bg-gray-100 font-bold text-[12.5px] rounded-xs cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onDeleteCreditCard) onDeleteCreditCard(cardToDelete.id);
+                      setCardToDelete(null);
+                    }}
+                    className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white font-black text-[12.5px] rounded-xs cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Sim, Excluir</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {activeSubTab === 'contas' && (
         <div className="space-y-3">

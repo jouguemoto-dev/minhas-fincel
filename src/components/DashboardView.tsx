@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { Account, Category, Transaction } from '../types';
+import { Account, Category, Transaction, CreditCard } from '../types';
 import { formatCurrency, formatSignedAmount, formatDateShortYear, MONTH_NAMES_PT } from '../utils/formatters';
 import { AddTransactionBar } from './AddTransactionBar';
-import { Plus, HelpCircle, Maximize2, Minus, Pencil, ExternalLink, CreditCard, MessageSquare } from 'lucide-react';
+import { CreditCardsDashboardWidget } from './CreditCardsDashboardWidget';
+import { Plus, HelpCircle, Maximize2, Minus, Pencil, ExternalLink, CreditCard as CardIcon, MessageSquare, Calendar } from 'lucide-react';
 
 interface DashboardViewProps {
   transactions: Transaction[];
   accounts: Account[];
   categories: Category[];
+  creditCards?: CreditCard[];
   selectedMonth: number;
   selectedYear: number;
   onPrevMonth: () => void;
@@ -23,12 +25,16 @@ interface DashboardViewProps {
   onNavigateToAnalise?: (subType: 'categorias' | 'evolucao' | 'fluxo') => void;
   onOpenInstallmentModal?: () => void;
   onOpenChatModal?: () => void;
+  onOpenNewCardModal?: () => void;
+  onEditCard?: (card: CreditCard) => void;
+  onDeleteCard?: (cardId: string) => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
   transactions,
   accounts,
   categories,
+  creditCards = [],
   selectedMonth,
   selectedYear,
   onPrevMonth,
@@ -40,6 +46,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onNavigateToAnalise,
   onOpenInstallmentModal,
   onOpenChatModal,
+  onOpenNewCardModal,
+  onEditCard,
+  onDeleteCard,
 }) => {
   const [showAddBar, setShowAddBar] = useState(false);
   const [includePreviousBalance, setIncludePreviousBalance] = useState(true);
@@ -54,6 +63,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [saldoContasOpen, setSaldoContasOpen] = useState(true);
   const [alertasOpen, setAlertasOpen] = useState(true);
   const [ultimasOpen, setUltimasOpen] = useState(false);
+
+  const now = new Date();
+  const currentRealMonth = now.getMonth();
+  const currentRealYear = now.getFullYear();
+  const isCurrentMonth = selectedMonth === currentRealMonth && selectedYear === currentRealYear;
+  const currentMonthLabel = `${MONTH_NAMES_PT[currentRealMonth]}/${currentRealYear}`;
+
+  const availableYears = Array.from(new Set([
+    selectedYear,
+    currentRealYear - 1,
+    currentRealYear,
+    currentRealYear + 1,
+  ])).sort((a, b) => a - b);
 
   const monthLabel = `${MONTH_NAMES_PT[selectedMonth]}/${selectedYear}`;
   const monthKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
@@ -152,8 +174,26 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </button>
 
             {monthDropdownOpen && (
-              <div className="absolute top-full left-0 mt-1 w-52 bg-white border border-[#888888] shadow-xl py-1 z-30 max-h-60 overflow-y-auto">
-                {[2026, 2027].map(yr => (
+              <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-[#888888] shadow-xl py-1 z-30 max-h-60 overflow-y-auto">
+                {/* Shortcut to Current Month */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSelectMonthYear(currentRealYear, currentRealMonth);
+                    setMonthDropdownOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs font-black text-[#577708] bg-[#f1f6df] hover:bg-[#e4ecc4] border-b border-gray-200 flex items-center justify-between cursor-pointer"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>Ir para Mês Atual</span>
+                  </span>
+                  <span className="text-[10px] bg-[#82af07] text-white px-1.5 py-0.5 rounded font-bold">
+                    {MONTH_NAMES_PT[currentRealMonth]}
+                  </span>
+                </button>
+
+                {availableYears.map(yr => (
                   <div key={yr}>
                     <div className="px-3 py-1 font-bold text-[12px] bg-gray-100 text-[#000000]">{yr}</div>
                     {MONTH_NAMES_PT.map((m, idx) => (
@@ -164,7 +204,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           setMonthDropdownOpen(false);
                         }}
                         className={`w-full text-left px-3.5 py-1.5 hover:bg-[#f1f6df] cursor-pointer text-[13.5px] font-bold ${
-                          selectedMonth === idx && selectedYear === yr ? 'text-[#73a000]' : 'text-[#000000]'
+                          selectedMonth === idx && selectedYear === yr ? 'text-[#73a000] font-black bg-green-50' : 'text-[#000000]'
                         }`}
                       >
                         {m} / {yr}
@@ -193,6 +233,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <Plus className="w-4 h-4 stroke-[3]" />
             <span>Adicionar transação</span>
           </button>
+
+          {/* "Lançar por chat" Button */}
+          {onOpenChatModal && (
+            <button
+              type="button"
+              onClick={onOpenChatModal}
+              className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 border border-[#999] bg-gradient-to-b from-[#ffffff] to-[#e4e4e4] hover:to-[#dadada] text-[#000000] font-black rounded-xs text-[13px] cursor-pointer active:translate-y-px shadow-xs"
+              title="Criar lançamento por chat com Inteligência Artificial"
+            >
+              <MessageSquare className="w-4 h-4 text-[#5a8710]" />
+              <span>Lançar por chat</span>
+            </button>
+          )}
         </div>
 
         {/* Date & Last access display on right (clean on desktop, hidden on tiny mobile to save space) */}
@@ -332,6 +385,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           )}
         </div>
+
+        {/* ROW 1.5 - FULL WIDTH: CARTÕES DE CRÉDITO, FATURAS & COMPRAS PARCELADAS (QUANDO VAI ACABAR) */}
+        <CreditCardsDashboardWidget
+          cards={creditCards}
+          transactions={transactions}
+          accounts={accounts}
+          onOpenNewCardModal={onOpenNewCardModal || (() => {})}
+          onEditCard={onEditCard || (() => {})}
+          onDeleteCard={onDeleteCard}
+          onOpenInstallmentModal={onOpenInstallmentModal}
+          onAddTransactionToCard={(cardName) => {
+            setShowAddBar(true);
+          }}
+        />
 
         {/* ROW 2 - LEFT: DESPESAS */}
         <div className="bg-white border border-[#b8b8b8] shadow-xs">

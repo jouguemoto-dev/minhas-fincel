@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Account, Category, Transaction, Dream } from './types';
+import { Account, Category, Transaction, Dream, CreditCard } from './types';
 import {
   INITIAL_ACCOUNTS,
+  INITIAL_CREDIT_CARDS,
   INITIAL_CATEGORIES,
   INITIAL_TRANSACTIONS,
   INITIAL_DREAMS,
@@ -18,6 +19,7 @@ import { ExportModal } from './components/ExportModal';
 import { PdfPreviewModal } from './components/PdfPreviewModal';
 import { AccountModal } from './components/AccountModal';
 import { CategoryModal } from './components/CategoryModal';
+import { CreditCardModal } from './components/CreditCardModal';
 import { EditTransactionModal } from './components/EditTransactionModal';
 import { InstallmentPurchaseModal } from './components/InstallmentPurchaseModal';
 import { ChatTransactionModal } from './components/ChatTransactionModal';
@@ -34,10 +36,14 @@ import { AuthResponse, FinanceData, getFinanceData, logout, saveFinanceData } fr
 import {
   loadUserFinanceData,
   saveUserFinanceData,
+  loginWithGoogle,
   logoutFirebase,
+  subscribeToAuthState,
   subscribeToUserFinanceData,
   saveAccountInstant,
   deleteAccountInstant,
+  saveCreditCardInstant,
+  deleteCreditCardInstant,
   saveTransactionInstant,
   saveMultipleTransactionsInstant,
   deleteTransactionInstant,
@@ -49,12 +55,27 @@ import {
 } from './lib/firebase';
 
 export default function App() {
-  const [sessionToken, setSessionToken] = useState<string | null>(
-    () => localStorage.getItem('me_auth_token_v1') || 'local_session_julio'
-  );
-  const [userEmail, setUserEmail] = useState(
-    () => localStorage.getItem('me_auth_email_v1') || 'julio@cbcenergiasrenovaveis.com'
-  );
+  const [sessionToken, setSessionToken] = useState<string | null>(() => {
+    const token = localStorage.getItem('me_auth_token_v1');
+    if (token === 'local_session_julio' || token === 'local_julio') {
+      localStorage.removeItem('me_auth_token_v1');
+      localStorage.removeItem('me_auth_email_v1');
+      return null;
+    }
+    return token;
+  });
+  const [userEmail, setUserEmail] = useState<string>(() => {
+    const token = localStorage.getItem('me_auth_token_v1');
+    if (token === 'local_session_julio' || token === 'local_julio') {
+      return '';
+    }
+    const email = localStorage.getItem('me_auth_email_v1');
+    if (email === 'julio@cbcenergiasrenovaveis.com' && !token) {
+      return '';
+    }
+    return email || '';
+  });
+  const [authChecking, setAuthChecking] = useState<boolean>(true);
   const [authLoading, setAuthLoading] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authError, setAuthError] = useState('');
@@ -88,9 +109,9 @@ export default function App() {
   // Navigation tab state
   const [activeTab, setActiveTab] = useState<string>('inicio');
 
-  // Month and year state (Defaults to October 2026 for Dashboard, November 2026 for Transações)
-  const [selectedMonth, setSelectedMonth] = useState<number>(9); // 0-indexed: 9 = Outubro
-  const [selectedYear, setSelectedYear] = useState<number>(2026);
+  // Month and year state (Defaults dynamically to current real month & year)
+  const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
 
   // Core Data States with localStorage persistence (clearing any old sample/dummy data)
   const [accounts, setAccounts] = useState<Account[]>(() => {
@@ -137,12 +158,54 @@ export default function App() {
     return INITIAL_DREAMS;
   });
 
+  const [creditCards, setCreditCards] = useState<CreditCard[]>(() => {
+    const saved = localStorage.getItem('me_credit_cards_v1');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {
+        return INITIAL_CREDIT_CARDS;
+      }
+    }
+    return INITIAL_CREDIT_CARDS;
+  });
+
+  const [isCreditCardModalOpen, setIsCreditCardModalOpen] = useState(false);
+  const [cardToEdit, setCardToEdit] = useState<CreditCard | null>(null);
+
   // Filters state
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>(() =>
     INITIAL_ACCOUNTS.map((a) => a.id)
   );
   const [selectedCategoryNames, setSelectedCategoryNames] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Listen for real Firebase auth session changes
+  useEffect(() => {
+    const unsubscribe = subscribeToAuthState((fbUser) => {
+      setAuthChecking(false);
+      if (fbUser) {
+        const token = `fb_${fbUser.uid}`;
+        const email = fbUser.email || '';
+        setSessionToken(token);
+        setUserEmail(email);
+        localStorage.setItem('me_auth_token_v1', token);
+        localStorage.setItem('me_auth_email_v1', email);
+      } else {
+        setSessionToken((prev) => {
+          if (prev && prev.startsWith('fb_')) {
+            localStorage.removeItem('me_auth_token_v1');
+            localStorage.removeItem('me_auth_email_v1');
+            return null;
+          }
+          return prev;
+        });
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (!sessionToken || sessionToken.startsWith('local_')) {
@@ -164,24 +227,39 @@ export default function App() {
         uid,
         (data) => {
           clearTimeout(safetyTimer);
-          if (data.accounts.length === 0) {
+
+          // Only perform new user initialization once all 5 collections have responded
+          if (data.isInitialLoadComplete === false) {
+            return;
+          }
+
+          const isBrandNewUser =
+            data.accounts.length === 0 &&
+            (!data.creditCards || data.creditCards.length === 0) &&
+            data.categories.length === 0 &&
+            data.transactions.length === 0;
+
+          if (isBrandNewUser) {
             const cleanInitialData = {
               accounts: INITIAL_ACCOUNTS,
               categories: INITIAL_CATEGORIES,
               transactions: [],
               dreams: [],
+              creditCards: INITIAL_CREDIT_CARDS,
             };
-            saveUserFinanceData(uid, userEmail || 'julio@cbcenergiasrenovaveis.com', cleanInitialData).catch(console.error);
+            saveUserFinanceData(uid, userEmail || 'usuario@local.domain', cleanInitialData).catch(console.error);
             setAccounts(INITIAL_ACCOUNTS);
             setCategories(INITIAL_CATEGORIES);
             setTransactions([]);
             setDreams([]);
+            setCreditCards(INITIAL_CREDIT_CARDS);
             setSelectedAccountIds(INITIAL_ACCOUNTS.map((a) => a.id));
           } else {
             setAccounts(data.accounts);
             setCategories(data.categories.length > 0 ? data.categories : INITIAL_CATEGORIES);
             setTransactions(data.transactions);
             setDreams(data.dreams);
+            setCreditCards(data.creditCards || []);
             setSelectedAccountIds((prev) =>
               prev.length > 0 ? prev : data.accounts.map((a) => a.id)
             );
@@ -210,6 +288,9 @@ export default function App() {
           setCategories(data.categories);
           setTransactions(data.transactions);
           setDreams(data.dreams);
+          if (data.creditCards && data.creditCards.length > 0) {
+            setCreditCards(data.creditCards);
+          }
           setSelectedAccountIds(data.accounts.map((account) => account.id));
           setDataLoaded(true);
           setAuthError('');
@@ -217,7 +298,7 @@ export default function App() {
         .catch((error: unknown) => {
           if (!active) return;
           console.warn('Backend sync fallback to local mode:', error);
-          setSessionToken('local_session_julio');
+          setSessionToken('local_guest');
           setDataLoaded(true);
         })
         .finally(() => {
@@ -236,14 +317,15 @@ export default function App() {
     localStorage.setItem('me_categories_v1', JSON.stringify(categories));
     localStorage.setItem('me_transactions_v1', JSON.stringify(transactions));
     localStorage.setItem('me_dreams_v1', JSON.stringify(dreams));
-  }, [accounts, categories, transactions, dreams]);
+    localStorage.setItem('me_credit_cards_v1', JSON.stringify(creditCards));
+  }, [accounts, categories, transactions, dreams, creditCards]);
 
   useEffect(() => {
     if (!sessionToken || !dataLoaded) return;
     if (sessionToken.startsWith('fb_')) return; // Real-time mutations handle Firebase instantly
 
     const timeout = window.setTimeout(() => {
-      const data: FinanceData = { accounts, categories, transactions, dreams };
+      const data: FinanceData = { accounts, categories, transactions, dreams, creditCards };
       setSyncError('');
       setIsSyncing(true);
       saveQueue.current = saveQueue.current
@@ -258,7 +340,7 @@ export default function App() {
     }, 200);
 
     return () => window.clearTimeout(timeout);
-  }, [accounts, categories, transactions, dreams, sessionToken, dataLoaded]);
+  }, [accounts, categories, transactions, dreams, creditCards, sessionToken, dataLoaded]);
 
   const handleAuthenticated = (response: AuthResponse) => {
     localStorage.setItem('me_auth_token_v1', response.token);
@@ -284,23 +366,82 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    if (sessionToken && !sessionToken.startsWith('local_')) {
-      try {
-        if (sessionToken.startsWith('fb_')) {
-          await logoutFirebase();
-        } else {
-          await logout(sessionToken);
-        }
-      } catch (error) {
-        console.warn('Logout notice:', error);
+    try {
+      await logoutFirebase();
+      if (sessionToken && !sessionToken.startsWith('local_') && !sessionToken.startsWith('fb_')) {
+        await logout(sessionToken);
       }
+    } catch (error) {
+      console.warn('Logout notice:', error);
     }
+
     localStorage.removeItem('me_auth_token_v1');
     localStorage.removeItem('me_auth_email_v1');
-    setSessionToken('local_session_julio');
-    setUserEmail('julio@cbcenergiasrenovaveis.com');
+    localStorage.removeItem('me_accounts_v1');
+    localStorage.removeItem('me_categories_v1');
+    localStorage.removeItem('me_transactions_v1');
+    localStorage.removeItem('me_dreams_v1');
+    localStorage.removeItem('me_credit_cards_v1');
+
+    setAccounts(INITIAL_ACCOUNTS);
+    setCategories(INITIAL_CATEGORIES);
+    setTransactions([]);
+    setDreams([]);
+    setCreditCards(INITIAL_CREDIT_CARDS);
+    setSelectedAccountIds(INITIAL_ACCOUNTS.map((a) => a.id));
+
+    setSessionToken(null);
+    setUserEmail('');
     setDataLoaded(true);
     setAuthLoading(false);
+    setAuthError('');
+    setIsAuthModalOpen(true);
+  };
+
+  const handleSwitchGoogleAccount = async () => {
+    try {
+      await logoutFirebase();
+      if (sessionToken && !sessionToken.startsWith('local_') && !sessionToken.startsWith('fb_')) {
+        await logout(sessionToken);
+      }
+    } catch (error) {
+      console.warn('Logout notice:', error);
+    }
+
+    localStorage.removeItem('me_auth_token_v1');
+    localStorage.removeItem('me_auth_email_v1');
+    setSessionToken(null);
+    setUserEmail('');
+
+    try {
+      setAuthLoading(true);
+      const user = await loginWithGoogle();
+      let data = await loadUserFinanceData(user.uid);
+      if (!data) {
+        data = {
+          accounts: INITIAL_ACCOUNTS,
+          categories: INITIAL_CATEGORIES,
+          transactions: [],
+          dreams: [],
+          creditCards: INITIAL_CREDIT_CARDS,
+        };
+        await saveUserFinanceData(user.uid, user.email ?? '', data);
+      }
+      handleAuthenticated({
+        token: `fb_${user.uid}`,
+        user: { email: user.email ?? '' },
+        data,
+      });
+      setIsAuthModalOpen(false);
+    } catch (err: unknown) {
+      const anyErr = err as { code?: string; message?: string };
+      if (anyErr?.code !== 'auth/popup-closed-by-user') {
+        setAuthError(err instanceof Error ? err.message : 'Falha ao conectar com conta Google.');
+      }
+      setIsAuthModalOpen(true);
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   // Modals state
@@ -335,13 +476,13 @@ export default function App() {
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
-  // Switch month automatically when switching to Transações if desired
+  // Switch tab, ensuring Transações opens in the current month
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
-    if (tab === 'transacoes' && selectedMonth === 9) {
-      setSelectedMonth(10); // Switch to Novembro/2026 to show sample transactions
-    } else if (tab === 'inicio' && selectedMonth === 10) {
-      setSelectedMonth(9); // Switch to Outubro/2026 to show dashboard view
+    if (tab === 'transacoes') {
+      const now = new Date();
+      setSelectedMonth(now.getMonth());
+      setSelectedYear(now.getFullYear());
     }
   };
 
@@ -589,6 +730,15 @@ export default function App() {
   };
 
   const handleOpenEditAccount = (acc: Account) => {
+    if (acc.type === 'cartao') {
+      const matchingCard = creditCards.find(
+        (c) => c.name.toLowerCase() === acc.name.toLowerCase() || c.id === acc.id
+      );
+      if (matchingCard) {
+        handleEditCard(matchingCard);
+        return;
+      }
+    }
     setAccountToEdit(acc);
     setIsAccountModalOpen(true);
   };
@@ -666,6 +816,129 @@ export default function App() {
       deleteAccountInstant(uid, id)
         .catch((err) => setSyncError(err.message))
         .finally(() => setIsSyncing(false));
+    }
+  };
+
+  // ==========================================
+  // CRUD CARTÕES DE CRÉDITO (CREDIT CARDS)
+  // ==========================================
+  const handleOpenNewCardModal = () => {
+    setCardToEdit(null);
+    setIsCreditCardModalOpen(true);
+  };
+
+  const handleEditCard = (card: CreditCard) => {
+    setCardToEdit(card);
+    setIsCreditCardModalOpen(true);
+  };
+
+  const handleSaveCard = (cardData: Omit<CreditCard, 'id'> & { id?: string }) => {
+    let savedCard: CreditCard;
+    const cleanClosing = Math.min(31, Math.max(1, Math.round(Number(cardData.closingDay)) || 5));
+    const cleanDue = Math.min(31, Math.max(1, Math.round(Number(cardData.dueDay)) || 12));
+    const cleanLimit = Math.max(0, Number(cardData.limit) || 0);
+
+    if (cardData.id) {
+      const oldCard = creditCards.find((c) => c.id === cardData.id);
+      savedCard = {
+        ...cardData,
+        id: cardData.id,
+        closingDay: cleanClosing,
+        dueDay: cleanDue,
+        limit: cleanLimit,
+      } as CreditCard;
+      setCreditCards((prev) => {
+        const updated = prev.map((c) => (c.id === cardData.id ? savedCard : c));
+        localStorage.setItem('me_credit_cards_v1', JSON.stringify(updated));
+        return updated;
+      });
+
+      // If card name changed, rename in associated transactions
+      if (oldCard && oldCard.name !== cardData.name) {
+        setTransactions((prev) =>
+          prev.map((t) => (t.account === oldCard.name ? { ...t, account: cardData.name } : t))
+        );
+      }
+    } else {
+      savedCard = {
+        ...cardData,
+        id: `card-${Date.now()}`,
+        closingDay: cleanClosing,
+        dueDay: cleanDue,
+        limit: cleanLimit,
+      } as CreditCard;
+      setCreditCards((prev) => {
+        const updated = [...prev, savedCard];
+        localStorage.setItem('me_credit_cards_v1', JSON.stringify(updated));
+        return updated;
+      });
+    }
+
+    // Ensure corresponding account exists in accounts with type 'cartao'
+    setAccounts((prevAccs) => {
+      const existing = prevAccs.find(
+        (a) => a.name.toLowerCase() === savedCard.name.toLowerCase() || a.id === savedCard.id
+      );
+      if (existing) {
+        const updatedAcc: Account = {
+          ...existing,
+          name: savedCard.name,
+          type: 'cartao',
+          color: savedCard.color,
+        };
+        if (sessionToken?.startsWith('fb_')) {
+          saveAccountInstant(sessionToken.slice(3), updatedAcc).catch(console.error);
+        }
+        return prevAccs.map((a) => (a.id === existing.id ? updatedAcc : a));
+      } else {
+        const newAcc: Account = {
+          id: savedCard.id,
+          name: savedCard.name,
+          balance: 0,
+          initialBalance: 0,
+          type: 'cartao',
+          isChecked: true,
+          color: savedCard.color,
+        };
+        if (sessionToken?.startsWith('fb_')) {
+          saveAccountInstant(sessionToken.slice(3), newAcc).catch(console.error);
+        }
+        return [...prevAccs, newAcc];
+      }
+    });
+
+    if (sessionToken?.startsWith('fb_')) {
+      const uid = sessionToken.slice(3);
+      setIsSyncing(true);
+      saveCreditCardInstant(uid, savedCard)
+        .catch((err) => setSyncError(err.message))
+        .finally(() => setIsSyncing(false));
+    }
+  };
+
+  const handleDeleteCard = (cardId: string) => {
+    const cardToDelete = creditCards.find((c) => c.id === cardId);
+    setCreditCards((prev) => {
+      const updated = prev.filter((c) => c.id !== cardId);
+      localStorage.setItem('me_credit_cards_v1', JSON.stringify(updated));
+      return updated;
+    });
+
+    if (cardToDelete) {
+      setAccounts((prev) =>
+        prev.filter((a) => a.id !== cardId && a.name.toLowerCase() !== cardToDelete.name.toLowerCase())
+      );
+    }
+
+    if (sessionToken?.startsWith('fb_')) {
+      const uid = sessionToken.slice(3);
+      setIsSyncing(true);
+      deleteCreditCardInstant(uid, cardId)
+        .catch((err) => setSyncError(err.message))
+        .finally(() => setIsSyncing(false));
+      if (cardToDelete) {
+        deleteAccountInstant(uid, cardToDelete.id).catch(() => undefined);
+      }
     }
   };
 
@@ -813,10 +1086,12 @@ export default function App() {
     setTransactions([]);
     setDreams([]);
     setAccounts(zeroedAccounts);
+    setCreditCards(INITIAL_CREDIT_CARDS);
 
     localStorage.removeItem('me_transactions_v1');
     localStorage.removeItem('me_dreams_v1');
     localStorage.setItem('me_accounts_v1', JSON.stringify(zeroedAccounts));
+    localStorage.setItem('me_credit_cards_v1', JSON.stringify(INITIAL_CREDIT_CARDS));
 
     if (sessionToken?.startsWith('fb_')) {
       const uid = sessionToken.slice(3);
@@ -887,14 +1162,23 @@ export default function App() {
   const currentMonthlyIncome = currentMonthTxs.filter((t) => t.amount > 0).reduce((acc, t) => acc + t.amount, 0);
   const currentMonthlyExpense = currentMonthTxs.filter((t) => t.amount < 0).reduce((acc, t) => acc + Math.abs(t.amount), 0);
 
-  if (isAuthModalOpen) {
+  if (authChecking && !sessionToken) {
+    return (
+      <div className="min-h-screen bg-[#f4f4f4] flex flex-col items-center justify-center gap-3">
+        <div className="w-8 h-8 border-3 border-[#82af07] border-t-transparent rounded-full animate-spin" />
+        <span className="text-sm font-bold text-gray-700">Carregando Minhas Economias...</span>
+      </div>
+    );
+  }
+
+  if (isAuthModalOpen || (!sessionToken && !authLoading)) {
     const localData: FinanceData = { accounts, categories, transactions, dreams };
     return (
       <div className="relative">
         <AuthScreen
           initialData={localData}
           initialError={authError}
-          onClose={() => setIsAuthModalOpen(false)}
+          onClose={sessionToken ? () => setIsAuthModalOpen(false) : undefined}
           onAuthenticated={(resp) => {
             setIsAuthModalOpen(false);
             handleAuthenticated(resp);
@@ -912,6 +1196,7 @@ export default function App() {
         setActiveTab={handleTabChange}
         userEmail={userEmail}
         onLogout={handleLogout}
+        onSwitchGoogleAccount={handleSwitchGoogleAccount}
         onOpenExportModal={() => setIsExportModalOpen(true)}
         onOpenInstallModal={() => setIsInstallModalOpen(true)}
         onResetDataToZero={() => setIsResetModalOpen(true)}
@@ -920,6 +1205,7 @@ export default function App() {
         isPrivacyMode={isPrivacyMode}
         onTogglePrivacy={togglePrivacyMode}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        onOpenCreditCardModal={handleOpenNewCardModal}
       />
 
       {resetFeedback && (
@@ -965,6 +1251,7 @@ export default function App() {
             onClearAccounts={handleClearAccounts}
             onSelectAllAccounts={handleSelectAllAccounts}
             onOpenNewAccountModal={handleOpenNewAccount}
+            onOpenNewCreditCardModal={handleOpenNewCardModal}
             onEditAccount={handleOpenEditAccount}
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
@@ -983,6 +1270,7 @@ export default function App() {
               transactions={transactions}
               accounts={accountsWithBalances}
               categories={categories}
+              creditCards={creditCards}
               selectedMonth={selectedMonth}
               selectedYear={selectedYear}
               onPrevMonth={handlePrevMonth}
@@ -993,6 +1281,10 @@ export default function App() {
               onNavigateToTransactions={() => handleTabChange('transacoes')}
               onNavigateToAnalise={(type) => handleTabChange(`analise-${type}`)}
               onOpenInstallmentModal={() => setIsInstallmentModalOpen(true)}
+              onOpenChatModal={() => setIsChatModalOpen(true)}
+              onOpenNewCardModal={handleOpenNewCardModal}
+              onEditCard={handleEditCard}
+              onDeleteCard={handleDeleteCard}
             />
           )}
 
@@ -1020,6 +1312,7 @@ export default function App() {
               onOpenExportModal={() => setIsExportModalOpen(true)}
               onSelectAllAccounts={handleSelectAllAccounts}
               onOpenInstallmentModal={() => setIsInstallmentModalOpen(true)}
+              onOpenChatModal={() => setIsChatModalOpen(true)}
             />
           )}
 
@@ -1058,12 +1351,23 @@ export default function App() {
             <ConfiguracoesView
               accounts={accountsWithBalances}
               categories={categories}
+              creditCards={creditCards}
+              initialSubTab={
+                activeTab === 'config-cartoes'
+                  ? 'cartoes'
+                  : activeTab === 'config-categorias'
+                  ? 'categorias'
+                  : 'contas'
+              }
               onAddCategory={(cat) => setCategories((prev) => [...prev, cat])}
               onEditCategory={handleOpenEditCategory}
               onDeleteCategory={handleDeleteCategory}
               onOpenNewAccountModal={handleOpenNewAccount}
               onEditAccount={handleOpenEditAccount}
               onDeleteAccount={handleDeleteAccount}
+              onOpenNewCreditCardModal={handleOpenNewCardModal}
+              onEditCreditCard={handleEditCard}
+              onDeleteCreditCard={handleDeleteCard}
               onResetDataToZero={() => setIsResetModalOpen(true)}
             />
           )}
@@ -1112,6 +1416,19 @@ export default function App() {
         accountToEdit={accountToEdit}
         onSaveAccount={handleSaveAccount}
         onDeleteAccount={handleDeleteAccount}
+      />
+
+      {/* Credit Card Creation & Edit Modal */}
+      <CreditCardModal
+        isOpen={isCreditCardModalOpen}
+        onClose={() => {
+          setIsCreditCardModalOpen(false);
+          setCardToEdit(null);
+        }}
+        cardToEdit={cardToEdit}
+        accounts={accountsWithBalances}
+        onSaveCard={handleSaveCard}
+        onDeleteCard={handleDeleteCard}
       />
 
       {/* Category Creation & Edit Modal */}
@@ -1164,6 +1481,7 @@ export default function App() {
         onOpenInstallModal={() => setIsInstallModalOpen(true)}
         onOpenExportModal={() => setIsExportModalOpen(true)}
         onOpenQuickAdd={() => handleOpenQuickAdd('despesa')}
+        onOpenChatModal={() => setIsChatModalOpen(true)}
         isInstalled={isInstalled}
       />
 
@@ -1174,6 +1492,26 @@ export default function App() {
         accounts={accountsWithBalances}
         categories={categories}
         initialType={quickAddType}
+        onAddTransaction={handleAddTransaction}
+        onOpenChatModal={() => {
+          setIsQuickAddOpen(false);
+          setIsChatModalOpen(true);
+        }}
+      />
+
+      {/* Chat Transaction Modal (Lançamento por Chat com IA) */}
+      <ChatTransactionModal
+        isOpen={isChatModalOpen}
+        onClose={() => setIsChatModalOpen(false)}
+        accounts={accountsWithBalances}
+        categories={categories}
+        currentDateStr={(() => {
+          const now = new Date();
+          const day = now.getFullYear() === selectedYear && now.getMonth() === selectedMonth
+            ? String(now.getDate()).padStart(2, '0')
+            : '01';
+          return `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${day}`;
+        })()}
         onAddTransaction={handleAddTransaction}
       />
 

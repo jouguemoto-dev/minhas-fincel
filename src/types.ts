@@ -50,3 +50,17 @@ export interface BudgetCategory {
   category: string;
   budgeted: number;
 }
+
+export type CardBrand = 'mastercard' | 'visa' | 'elo' | 'amex' | 'hipercard' | 'outro';
+
+export interface CreditCard {
+  id: string;
+  name: string;
+  brand: CardBrand;
+  limit: number;
+  closingDay: number; // 1 a 31
+  dueDay: number; // 1 a 31
+  color?: string;
+  last4Digits?: string;
+  accountId?: string;
+}

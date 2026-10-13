@@ -13,6 +13,7 @@ interface LeftSidebarProps {
   onClearAccounts: () => void;
   onSelectAllAccounts: () => void;
   onOpenNewAccountModal: () => void;
+  onOpenNewCreditCardModal?: () => void;
   onEditAccount: (account: Account) => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
@@ -33,6 +34,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   onClearAccounts,
   onSelectAllAccounts,
   onOpenNewAccountModal,
+  onOpenNewCreditCardModal,
   onEditAccount,
   searchQuery,
   setSearchQuery,
@@ -154,21 +156,33 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
             </div>
 
             {/* Bottom Buttons */}
-            <div className="pt-2 flex items-center justify-between gap-2">
+            <div className="pt-2 flex items-center justify-between gap-1.5 flex-wrap">
               <button
                 type="button"
                 onClick={selectedAccountIds.length > 0 ? onClearAccounts : onSelectAllAccounts}
-                className="px-3 py-1.5 border border-[#999999] bg-gradient-to-b from-[#ffffff] to-[#e4e4e4] hover:to-[#d0d0d0] text-[#000000] font-bold rounded-xs cursor-pointer text-[12.5px] active:translate-y-px"
+                className="px-2.5 py-1.5 border border-[#999999] bg-gradient-to-b from-[#ffffff] to-[#e4e4e4] hover:to-[#d0d0d0] text-[#000000] font-bold rounded-xs cursor-pointer text-[12px] active:translate-y-px"
               >
                 {selectedAccountIds.length > 0 ? 'Limpar' : 'Marcar todas'}
               </button>
-              <button
-                type="button"
-                onClick={onOpenNewAccountModal}
-                className="px-3 py-1.5 border border-[#999999] bg-gradient-to-b from-[#ffffff] to-[#e4e4e4] hover:to-[#d0d0d0] text-[#000000] font-bold rounded-xs cursor-pointer text-[12.5px] active:translate-y-px"
-              >
-                Nova conta
-              </button>
+              <div className="flex items-center gap-1.5">
+                {onOpenNewCreditCardModal && (
+                  <button
+                    type="button"
+                    onClick={onOpenNewCreditCardModal}
+                    className="px-2 py-1.5 border border-[#999999] bg-gradient-to-b from-[#ffffff] to-[#e4e4e4] hover:to-[#d0d0d0] text-[#5a8710] font-bold rounded-xs cursor-pointer text-[12px] active:translate-y-px flex items-center gap-1"
+                    title="Cadastrar Cartão de Crédito"
+                  >
+                    💳 Cartão
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={onOpenNewAccountModal}
+                  className="px-2.5 py-1.5 border border-[#999999] bg-gradient-to-b from-[#ffffff] to-[#e4e4e4] hover:to-[#d0d0d0] text-[#000000] font-bold rounded-xs cursor-pointer text-[12px] active:translate-y-px"
+                >
+                  Nova conta
+                </button>
+              </div>
             </div>
           </div>
         )}
